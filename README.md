@@ -14,6 +14,10 @@ This repository is an inference repo similar to that of the ESRGAN inference rep
 
 ## Using this repo
 
+Requirements: `numpy, opencv-python, pytorch`
+
+Optional requirements: `ffmpeg-python` (to use video input/output)
+
 ### Upscaling exported frames
 
 - Place exported video frames in the `input` folder
@@ -23,7 +27,7 @@ This repository is an inference repo similar to that of the ESRGAN inference rep
 ### Upscaling video files
 
 - Place model in the `models` folder
-- set `--input` to your input video
+- Set `--input` to your input video
 - Set `--output` to your output video
 - Example: `python run.py ./models/video_model.pth --input "./input/input_video.mp4" --output "./output/output_video.mp4"`
 
