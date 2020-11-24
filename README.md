@@ -4,11 +4,13 @@ This repository is an inference repo similar to that of the ESRGAN inference rep
 
 ## Currently supported architectures
 
-- SOFVSR (@Victorca25's BasicSR Version)
+- SOFVSR ([victorca25's BasicSR](https://github.com/victorca25/BasicSR/tree/dev2) Version)
+  - Original SOFVSR SR net
+  - RRDB SR net
 
 ## Additional features
 
-- Automatic scale, number of frames, and number of channels detection
+- Automatic scale, number of frames, number of channels, and SR architecture detection
 - Automatic beginning and end frame padding so frames 1 and -1 get included in output
 - Direct video input and output through ffmpeg
 
@@ -16,7 +18,7 @@ This repository is an inference repo similar to that of the ESRGAN inference rep
 
 Requirements: `numpy, opencv-python, pytorch`
 
-Optional requirements: `ffmpeg-python` (to use video input/output)
+Optional requirements: `ffmpeg-python` to use video input/output (requires ffmpeg to be installed)
 
 ### Upscaling exported frames
 
@@ -41,9 +43,9 @@ Optional requirements: `ffmpeg-python` (to use video input/output)
 
 ## Planned architecture support
 
+- RIFE
 - EDVR
 - RRN
-- RIFE
 
 ## Planned additional features
 
