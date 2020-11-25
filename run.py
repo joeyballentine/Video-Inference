@@ -119,7 +119,7 @@ def main():
         frame_size = state_dict['SR.model.0.weight'].shape[1]
         num_frames = (((frame_size - 3) // (3 * (scale ** 2))) + 1)
 
-        model = SOFVSR.SOFVSR(scale=scale, n_frames=num_frames, channels=num_channels, SR_net='rrdb', sr_nf=nf, sr_nb=nb, img_ch=3)
+        model = SOFVSR.SOFVSR(scale=scale, n_frames=num_frames, channels=num_channels, SR_net='rrdb', sr_nf=nf, sr_nb=nb, img_ch=3, sr_gaussian_noise=False)
         only_y = False
     # Default SOFVSR SR net
     else:
