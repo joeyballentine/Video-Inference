@@ -227,6 +227,9 @@ def main():
                 # print("normal frame:", idx_frame)
                 LR_img = images[idx+i_frame] if is_video else cv2.imread(images[idx_frame+i_frame], cv2.IMREAD_COLOR)
 
+            if not only_y:
+                LR_img = cv2.cvtColor(LR_img, cv2.COLOR_BGR2RGB)
+
             # get the bicubic upscale of the center frame to concatenate for SR
             if only_y and i_frame == idx_center:
                 if args.denoise:
@@ -311,7 +314,7 @@ def main():
             else:
                 sr_img = SR
         
-        sr_img = util.tensor2np(sr_img, rgb2bgr=only_y)  # uint8
+        sr_img = util.tensor2np(sr_img)  # uint8
 
         if not is_video:
             # save images
