@@ -241,7 +241,7 @@ def main():
                 images[idx + num_padding], cv2.IMREAD_COLOR)
             if not only_y:
                 # TODO: Figure out why this is necessary
-                new_img = cv2.cvtColor(LR_img, cv2.COLOR_BGR2RGB)
+                new_img = cv2.cvtColor(new_img, cv2.COLOR_BGR2RGB)
             LR_list.append(new_img)
         # Cache current list for next iter
         previous_lr_list = LR_list
