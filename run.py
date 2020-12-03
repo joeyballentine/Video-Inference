@@ -6,9 +6,11 @@ import cv2
 import numpy as np
 
 import utils.architectures.SOFVSR_arch as SOFVSR
-from torch.autograd import Variable
+import utils.architectures.RIFE_arch as RIFE
+
 import utils.common as util
 from utils.colors import *
+from utils.state_dict_utils import get_model_from_state_dict
 
 parser = argparse.ArgumentParser()
 parser.add_argument('model')
@@ -19,7 +21,8 @@ parser.add_argument('--cpu', action='store_true',
 parser.add_argument('--denoise', action='store_true',
                     help='Denoise the chroma layers')
 parser.add_argument('--chop_forward', action='store_true')
-parser.add_argument('--crf', default=0)
+parser.add_argument('--crf', default=0, type=int)
+parser.add_argument('--exp', default=2, type=int, help='RIFE exponential interpolation amount')
 args = parser.parse_args()
 
 is_video = False
@@ -39,118 +42,15 @@ device = torch.device('cpu' if args.cpu else 'cuda')
 input_folder = os.path.normpath(args.input)
 output_folder = os.path.normpath(args.output)
 
-
-def chop_forward(x, model, scale, shave=16, min_size=5000, nGPUs=1):
-    # divide into 4 patches
-    b, n, c, h, w = x.size()
-    h_half, w_half = h // 2, w // 2
-    h_size, w_size = h_half + shave, w_half + shave
-    inputlist = [
-        x[:, :, :, 0:h_size, 0:w_size],
-        x[:, :, :, 0:h_size, (w - w_size):w],
-        x[:, :, :, (h - h_size):h, 0:w_size],
-        x[:, :, :, (h - h_size):h, (w - w_size):w]]
-
-    if w_size * h_size < min_size:
-        outputlist = []
-        for i in range(0, 4, nGPUs):
-            input_batch = torch.cat(inputlist[i:(i + nGPUs)], dim=0)
-            with torch.no_grad():
-                model = model.to(device)
-                _, _, _, output_batch = model(input_batch.to(device))
-            outputlist.append(output_batch.data)
-    else:
-        outputlist = [
-            chop_forward(patch, model, scale, shave, min_size, nGPUs)
-            for patch in inputlist]
-
-    h, w = scale * h, scale * w
-    h_half, w_half = scale * h_half, scale * w_half
-    h_size, w_size = scale * h_size, scale * w_size
-    shave *= scale
-
-    # output = Variable(x.data.new(1, 1, h, w), volatile=True) #UserWarning: volatile was removed and now has no effect. Use `with torch.no_grad():` instead.
-    with torch.no_grad():
-        output = Variable(x.data.new(1, c, h, w))
-    for idx, out in enumerate(outputlist):
-        if len(out.shape) < 4:
-            outputlist[idx] = out.unsqueeze(0)
-    output[:, :, 0:h_half, 0:w_half] = outputlist[0][:, :, 0:h_half, 0:w_half]
-    output[:, :, 0:h_half, w_half:w] = outputlist[1][:,
-                                                     :, 0:h_half, (w_size - w + w_half):w_size]
-    output[:, :, h_half:h, 0:w_half] = outputlist[2][:,
-                                                     :, (h_size - h + h_half):h_size, 0:w_half]
-    output[:, :, h_half:h, w_half:w] = outputlist[3][:, :,
-                                                     (h_size - h + h_half):h_size, (w_size - w + w_half):w_size]
-
-    return output.float().cpu()
-
-
 def main():
     state_dict = torch.load(args.model)
 
-    # Extract num_channels
-    num_channels = state_dict['OFR.RNN1.0.weight'].shape[0]
+    model = get_model_from_state_dict(state_dict, device)
 
-    # Automatic scale detection & arch detection
-    keys = state_dict.keys()
-    # ESRGAN RRDB SR net
-    if 'SR.model.1.sub.0.RDB1.conv1.0.weight' in keys:
-        # extract model information
-        scale2 = 0
-        max_part = 0
-        for part in list(state_dict):
-            if part.startswith('SR.'):
-                parts = part.split('.')[1:]
-                n_parts = len(parts)
-                if n_parts == 5 and parts[2] == 'sub':
-                    nb = int(parts[3])
-                elif n_parts == 3:
-                    part_num = int(parts[1])
-                    if part_num > 6 and parts[2] == 'weight':
-                        scale2 += 1
-                    if part_num > max_part:
-                        max_part = part_num
-                        out_nc = state_dict[part].shape[0]
-        scale = 2 ** scale2
-        in_nc = state_dict['SR.model.0.weight'].shape[1]
-        nf = state_dict['SR.model.0.weight'].shape[0]
-
-        if scale == 2:
-            if state_dict['OFR.SR.1.weight'].shape[0] == 576:
-                scale = 3
-
-        frame_size = state_dict['SR.model.0.weight'].shape[1]
-        num_frames = (((frame_size - 3) // (3 * (scale ** 2))) + 1)
-
-        model = SOFVSR.SOFVSR(scale=scale, n_frames=num_frames, channels=num_channels,
-                              SR_net='rrdb', sr_nf=nf, sr_nb=nb, img_ch=3, sr_gaussian_noise=False)
-        only_y = False
-    # Default SOFVSR SR net
-    else:
-        if 'OFR.SR.3.weight' in keys:
-            scale = 1
-        elif 'SR.body.6.bias' in keys:
-            # 2 and 3 share the same architecture keys so here we check the shape
-            if state_dict['SR.body.3.weight'].shape[0] == 256:
-                scale = 2
-            elif state_dict['SR.body.3.weight'].shape[0] == 576:
-                scale = 3
-        elif 'SR.body.9.bias' in keys:
-            scale = 4
-        else:
-            raise ValueError('Scale could not be determined from model')
-        # Extract num_frames from model
-        frame_size = state_dict['SR.body.0.weight'].shape[1]
-        num_frames = (((frame_size - 1) // scale ** 2) + 1)
-        model = SOFVSR.SOFVSR(scale=scale, n_frames=num_frames,
-                              channels=num_channels, SR_net='sofvsr', img_ch=1)
-        only_y = True
-
-    # Create model
     model.load_state_dict(state_dict)
 
     # Case for if input and output are video files, read/write with ffmpeg
+    # TODO: Refactor this to be less messy
     if is_video:
         # Import ffmpeg here because it is only needed if input/output is video
         import ffmpeg
@@ -189,7 +89,7 @@ def main():
         # Open output file writer
         process = (
             ffmpeg
-            .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width * scale, height * scale))
+            .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width * model.scale, height * model.scale))
             .output(args.output, pix_fmt='yuv420p', vcodec=vcodec, r=framerate, crf=crf, preset='veryfast')
             .overwrite_output()
             .run_async(pipe_stdin=True)
@@ -203,149 +103,55 @@ def main():
                     images.append(os.path.join(root, file))
 
     # Pad beginning and end frames so they get included in output
-    num_padding = (num_frames - 1) // 2
-    for _ in range(num_padding):
+    for _ in range(model.num_padding):
         images.insert(0, images[0])
         images.append(images[-1])
 
-    previous_lr_list = []
-
+    count = 0
     # Inference loop
-    for idx in range(num_padding, len(images) - num_padding):
+    for idx in range(model.num_padding, len(images) - model.num_padding):
 
         # Only print this if processing frames
         if not is_video:
             img_name = os.path.splitext(os.path.basename(images[idx]))[0]
-            print(idx - num_padding, img_name)
+            print(idx - model.num_padding, img_name)
 
-        # First pass
-        if idx == num_padding:
-            LR_list = []
-            LR_bicubic = None
-            # Load all beginning images on either side of current index
-            # E.g. num_frames = 7, from -3 to 3
-            for i in range(-num_padding, num_padding + 1):
-                # Read image or select video frame
-                LR_img = images[idx + i] if is_video else cv2.imread(
-                    images[idx + i], cv2.IMREAD_COLOR)
-                if not only_y:
-                    # TODO: Figure out why this is necessary
-                    LR_img = cv2.cvtColor(LR_img, cv2.COLOR_BGR2RGB)
-                LR_list.append(LR_img)
-        # Other passes
-        else:
-            # Remove beginning frame from cached list
-            LR_list = previous_lr_list[1:]
-            # Load next image or video frame
-            new_img = images[idx + num_padding] if is_video else cv2.imread(
-                images[idx + num_padding], cv2.IMREAD_COLOR)
-            if not only_y:
-                # TODO: Figure out why this is necessary
-                new_img = cv2.cvtColor(new_img, cv2.COLOR_BGR2RGB)
-            LR_list.append(new_img)
-        # Cache current list for next iter
-        previous_lr_list = LR_list
+        model.feed_data(images)
 
-        # Convert LR_list to grayscale
-        if only_y:
-            gray_lr_list = []
-            LR_bicubic = LR_list[num_padding]
-            for i in range(len(LR_list)):
-                gray_lr = util.bgr2ycbcr(LR_list[i], only_y=True)
-                gray_lr = util.fix_img_channels(gray_lr, 1)
-                gray_lr_list.append(gray_lr)
-            LR_list = gray_lr_list
+        LR_list = model.get_frames(idx, is_video)
 
-        # Get the bicubic upscale of the center frame to concatenate for SR
-        if only_y:
-            if args.denoise:
-                LR_bicubic = cv2.blur(LR_bicubic, (3, 3))
-            else:
-                LR_bicubic = LR_bicubic
-            LR_bicubic = util.imresize_np(
-                img=LR_bicubic, scale=scale)  # bicubic upscale
+        sr_img = model.inference(LR_list, args)
 
-        if not only_y:
-            h_LR, w_LR, c = LR_list[0].shape
-
-        if not only_y:
-            t = num_frames
-            # list -> numpy # input: list (contatin numpy: [H,W,C])
-            LR = [np.asarray(LT) for LT in LR_list]
-            LR = np.asarray(LR)  # numpy, [T,H,W,C]
-            LR = LR.transpose(1, 2, 3, 0).reshape(
-                h_LR, w_LR, -1)  # numpy, [Hl',Wl',CT]
-        else:
-            LR = np.concatenate((LR_list), axis=2)  # h, w, t
-
-        if only_y:
-            # Tensor, [CT',H',W'] or [T, H, W]
-            LR = util.np2tensor(LR, bgr2rgb=False, add_batch=True)
-        else:
-            # Tensor, [CT',H',W'] or [T, H, W]
-            LR = util.np2tensor(LR, bgr2rgb=True, add_batch=False)
-            LR = LR.view(c, t, h_LR, w_LR)  # Tensor, [C,T,H,W]
-            LR = LR.transpose(0, 1)  # Tensor, [T,C,H,W]
-            LR = LR.unsqueeze(0)
-
-        if only_y:
-            # generate Cr, Cb channels using bicubic interpolation
-            LR_bicubic = util.bgr2ycbcr(LR_bicubic, only_y=False)
-            LR_bicubic = util.np2tensor(
-                LR_bicubic, bgr2rgb=False, add_batch=True)
-        else:
-            LR_bicubic = []
-
-        if len(LR.size()) == 4:
-            b, n_frames, h_lr, w_lr = LR.size()
-            LR = LR.view(b, -1, 1, h_lr, w_lr)  # b, t, c, h, w
-        elif len(LR.size()) == 5:  # for networks that work with 3 channel images
-            _, n_frames, _, _, _ = LR.size()
-            LR = LR  # b, t, c, h, w
-
-        if args.chop_forward:
-            # crop borders to ensure each patch can be divisible by 2
-            _, _, _, h, w = LR.size()
-            h = int(h//16) * 16
-            w = int(w//16) * 16
-            LR = LR[:, :, :, :h, :w]
-            if isinstance(LR_bicubic, torch.Tensor):
-                SR_cb = LR_bicubic[:, 1, :h * scale, :w * scale]
-                SR_cr = LR_bicubic[:, 2, :h * scale, :w * scale]
-
-            SR_y = chop_forward(LR, model, scale).squeeze(0)
-            if only_y:
-                sr_img = ycbcr_to_rgb(torch.stack((SR_y, SR_cb, SR_cr), -3))
-            else:
-                sr_img = SR_y
-        else:
-
-            with torch.no_grad():
-                model.to(device)
-                _, _, _, fake_H = model(LR.to(device))
-
-            SR = fake_H.detach()[0].float().cpu()
-            if only_y:
-                SR_cb = LR_bicubic[:, 1, :, :]
-                SR_cr = LR_bicubic[:, 2, :, :]
-                sr_img = ycbcr_to_rgb(torch.stack((SR, SR_cb, SR_cr), -3))
-            else:
-                sr_img = SR
-
-        sr_img = util.tensor2np(sr_img)  # uint8
-
+        # TODO: Refactor this to be less messy
         if not is_video:
             # save images
-            cv2.imwrite(os.path.join(output_folder,
-                                     os.path.basename(images[idx])), sr_img)
+            if isinstance(sr_img, list):
+                for i, img in enumerate(sr_img):
+                    # cv2.imwrite(os.path.join(output_folder,
+                    #                     f'{os.path.basename(images[idx]).split(".")[0]}_{i}.png'), img)
+                    cv2.imwrite(os.path.join(output_folder,
+                    f'{(count):08}.png'), img)
+                    count += 1
+            else:
+                cv2.imwrite(os.path.join(output_folder,
+                                        os.path.basename(images[idx])), sr_img)
         else:
             # Write SR frame to output video stream
-            sr_img = cv2.cvtColor(sr_img, cv2.COLOR_BGR2RGB)
-            process.stdin.write(
-                sr_img
-                .astype(np.uint8)
-                .tobytes()
-            )
+            if isinstance(sr_img, list):
+                for img in sr_img:
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    process.stdin.write(
+                        img
+                        .astype(np.uint8)
+                        .tobytes()
+                    )
+            else:
+                sr_img = cv2.cvtColor(sr_img, cv2.COLOR_BGR2RGB)
+                process.stdin.write(
+                    sr_img
+                    .astype(np.uint8)
+                    .tobytes()
+                )
 
     # Close output stream
     if is_video:
