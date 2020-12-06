@@ -23,13 +23,12 @@ class RIFEModel(BaseModel):
         self.denoise = False
         self.scale = 1
 
-    def get_frames(self, idx, is_video=False):
+    def get_frames(self, idx):
         LR_list = []
         for i in range(self.num_frames):
-            if idx + i < len(self.data):
+            if idx + i < len(self.io):
                 # Read image or select video frame
-                LR_img = self.data[idx + i] if is_video else cv2.imread(
-                    self.data[idx + i], cv2.IMREAD_COLOR)
+                LR_img = self.io[idx + i]
                 LR_list.append(LR_img)
         return LR_list
 
@@ -46,7 +45,6 @@ class RIFEModel(BaseModel):
         if len(LR_list) == 2:
             img0, img1 = imgs
             n, c, h, w = img0.shape
-            # TODO: Check if padding is necessary
             ph = ((h - 1) // 32 + 1) * 32
             pw = ((w - 1) // 32 + 1) * 32
             padding = (0, pw - w, 0, ph - h)
@@ -64,11 +62,11 @@ class RIFEModel(BaseModel):
                         tmp.append(mid)
                     tmp.append(img1)
                     img_list = tmp
-            output = [util.tensor2np(interp[0].detach().cpu()) for interp in img_list][:-1]
+            output = [util.tensor2np(interp[0].detach().cpu())[:h, :w] for interp in img_list][:-1]
         else:
             output = [LR_list[0]]
 
-        return output
+        self.io.save_frames(output)
 
 class RIFE_HD_Model(RIFEModel):
     def __init__(self, device=None):

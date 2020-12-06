@@ -20,7 +20,7 @@ This repository is an inference repo similar to that of the ESRGAN inference rep
 
 ## Using this repo
 
-Requirements: `numpy, opencv-python, pytorch`
+Requirements: `numpy, opencv-python, pytorch, progressbar2`
 
 Optional requirements: `ffmpeg-python` to use video input/output (requires ffmpeg to be installed)
 

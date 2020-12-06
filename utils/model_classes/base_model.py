@@ -8,8 +8,8 @@ class BaseModel():
     def load_state_dict(self, state_dict):
         self.model.load_state_dict(state_dict)
     
-    def feed_data(self, data):
-        self.data = data
+    def set_io(self, io):
+        self.io = io
 
     def get_frames(self):
         pass

@@ -26,7 +26,7 @@ class SOFVSRModel(BaseModel):
 
         self.previous_lr_list = []
     
-    def get_frames(self, idx, is_video=False):
+    def get_frames(self, idx):
         # First pass
         if idx == self.num_padding:
             LR_list = []
@@ -34,16 +34,14 @@ class SOFVSRModel(BaseModel):
             # E.g. num_frames = 7, from -3 to 3
             for i in range(-self.num_padding, self.num_padding + 1):
                 # Read image or select video frame
-                LR_img = self.data[idx + i] if is_video else cv2.imread(
-                    self.data[idx + i], cv2.IMREAD_COLOR)
+                LR_img = self.io[idx + i]
                 LR_list.append(LR_img)
         # Other passes
         else:
             # Remove beginning frame from cached list
             LR_list = self.previous_lr_list[1:]
             # Load next image or video frame
-            new_img = self.data[idx + self.num_padding] if is_video else cv2.imread(
-                self.data[idx + self.num_padding], cv2.IMREAD_COLOR)
+            new_img = self.io[idx + self.num_padding]
             LR_list.append(new_img)
         # Cache current list for next iter
         self.previous_lr_list = LR_list
@@ -141,7 +139,7 @@ class SOFVSRModel(BaseModel):
                 sr_img = SR
 
         sr_img = util.tensor2np(sr_img)  # uint8
-        return sr_img
+        self.io.save_frames(sr_img)
 
     def chop_forward(self, x, model, scale, shave=16, min_size=5000, nGPUs=1):
         # divide into 4 patches
