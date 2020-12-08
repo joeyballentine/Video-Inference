@@ -10,6 +10,7 @@ This repository is an inference repo similar to that of the ESRGAN inference rep
 - RIFE ([victorca25's BasicSR](https://github.com/victorca25/BasicSR/tree/dev2) Version)
   - Supports regular and 'HD' RIFE models
   - Original RIFE models will need to be converted to BasicSR's single-model .pth file (conversion script located in utils folder)
+- [TecoGAN-Pytorch](https://github.com/skycrapers/TecoGAN-PyTorch)
 
 ## Additional features
 
@@ -35,6 +36,10 @@ Optional requirements: `ffmpeg-python` to use video input/output (requires ffmpe
 - Converted .pth files: [1.3](https://mega.nz/file/DhBWgRYQ#hLkR4Eiks6s3ZvwLCl4eA57J3baR0eDXjyaV9yzmTeM) | [1.4](https://u.pcloud.link/publink/show?code=XZR9gLXZWREwfp3svoRW1WNKY0H5bFxaufkk) | [1.5 (HD)](https://u.pcloud.link/publink/show?code=XZeXKLXZdqXM0uCIGvH7IFyg0sSwC7dl2y2X)
 - Model conversion script located in utils folder
 
+#### TecoGAN
+
+- [BD degradation](https://drive.google.com/file/d/13FPxKE6q7tuRrfhTE7GB040jBeURBj58/view) | [BI degradation](https://drive.google.com/file/d/1ie1F7wJcO4mhNWK8nPX7F0LgOoPzCwEu/view)
+
 ### Upscaling exported frames
 
 - Place exported video frames in the `input` folder
@@ -59,8 +64,7 @@ Optional requirements: `ffmpeg-python` to use video input/output (requires ffmpe
 
 ## Planned architecture support
 
-- TecoGAN-pytorch
-- EDVR
+- EDVR (modified)
 - RRN
 
 ## Planned additional features

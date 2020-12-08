@@ -1,6 +1,6 @@
 from utils.model_classes.SOFVSR_model import SOFVSRModel, SOFVSR_RRDB_Model
-from utils.model_classes.RIFE_model import RIFEModel
-from utils.model_classes.RIFE_model import RIFE_HD_Model
+from utils.model_classes.RIFE_model import RIFEModel, RIFE_HD_Model
+from utils.model_classes.TecoGAN_model import TecoGanModel
 
 
 def get_model_from_state_dict(state_dict, device):
@@ -15,6 +15,14 @@ def get_model_from_state_dict(state_dict, device):
         # Regular RIFE model
         else:
             return RIFEModel(device=device)
+    # TecoGAN
+    elif 'fnet.encoder1.0.weight' in keys:
+        # This isn't a guarantee, it just works with the provided models
+        # TODO: Extract nb/nf from state dict
+        if 'upscample_func.kernels' in keys:
+            return TecoGanModel(device=device, degradation='BD')
+        else:
+            return TecoGanModel(device=device, degradation='BI')
     # SOFVSR
     else:
         # Extract num_channels
