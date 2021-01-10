@@ -6,7 +6,14 @@ import ffmpeg
 
 
 class VideoIO(BaseIO):
-    
+    """
+    Video Input & Output
+
+    Arguments
+        output_path (str): The path to write the video to
+        scale (int): The scale of the output (for VSR)
+        exp (int): The exponential interpolation factor (for RIFE)
+    """
     def __init__(self, output_path, scale, crf=0, exp=1):
         super(VideoIO, self).__init__(output_path)
 
@@ -17,6 +24,12 @@ class VideoIO(BaseIO):
         self.process = None
 
     def set_input(self, input_video):
+        """
+        Load video file into numpy array using ffmpeg, feed data, and open output stream.
+
+        Arguments:
+            input_video (str): The path of the video file to read.
+        """
         # Grabs video metadata information
         probe = ffmpeg.probe(input_video)
         video_stream = next(
@@ -61,6 +74,12 @@ class VideoIO(BaseIO):
         )
 
     def save_frames(self, frames):
+        """
+        Write image data to video output stream.
+
+        Arguments:
+            frames (ndarray, list): The image data to be written
+        """
         if not isinstance(frames, list):
             frames = [frames]
         for img in frames:
@@ -72,6 +91,9 @@ class VideoIO(BaseIO):
             )
 
     def close(self):
+        """
+        Close output stream.
+        """
         self.process.stdin.close()
         self.process.wait()
 

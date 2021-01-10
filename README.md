@@ -1,4 +1,4 @@
-# Video Inference
+# Easy Video Inference
 
 This repository is an inference repo similar to that of the ESRGAN inference repository, but for various video machine learning models. The idea is to allow anyone to easily run various models on video without having to worry about different repo setups. PRs welcome.
 
@@ -66,8 +66,11 @@ Optional requirements: `ffmpeg-python` to use video input/output (requires ffmpe
 
 - EDVR (modified)
 - RRN
+- Updated RIFE models
+- Deep Video Deinterlacing
 
 ## Planned additional features
 
 - More FFMPEG options
 - Model chaining
+- Will probably modify this repository to also run image models such as ESRGAN
