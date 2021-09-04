@@ -50,6 +50,9 @@ class RIFEModel(BaseModel):
             padding = (0, pw - w, 0, ph - h)
             img0 = F.pad(img0, padding)
             img1 = F.pad(img1, padding)
+            if args.fp16:
+                img0 = img0.half()
+                img1 = img1.half()
 
             img_list = [img0, img1]
             self.model.to(self.device)

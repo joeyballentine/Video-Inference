@@ -16,7 +16,10 @@ parser.add_argument('--denoise', action='store_true',
                     help='Denoise the chroma layers')
 parser.add_argument('--chop_forward', action='store_true')
 parser.add_argument('--crf', default=0, type=int)
-parser.add_argument('--exp', default=1, type=int, help='RIFE exponential interpolation amount')
+parser.add_argument('--exp', default=1, type=int,
+                    help='RIFE exponential interpolation amount')
+parser.add_argument('--fp16', action='store_true',
+                    help='Use floating-point 16 mode for faster inference')
 args = parser.parse_args()
 
 is_video = False
@@ -35,6 +38,12 @@ device = torch.device('cpu' if args.cpu else 'cuda')
 
 input_folder = os.path.normpath(args.input)
 output_folder = os.path.normpath(args.output)
+
+if args.fp16:
+    torch.set_default_tensor_type(
+        torch.HalfTensor if args.cpu else torch.cuda.HalfTensor
+    )
+
 
 def main():
     state_dict = torch.load(args.model)
@@ -62,7 +71,8 @@ def main():
     model.set_io(io)
 
     # Inference loop
-    for idx in progressbar.progressbar(range(model.num_padding, len(io) - model.num_padding)):#, redirect_stdout=True):
+    # , redirect_stdout=True):
+    for idx in progressbar.progressbar(range(model.num_padding, len(io) - model.num_padding)):
 
         LR_list = model.get_frames(idx)
 

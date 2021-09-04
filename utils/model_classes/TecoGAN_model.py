@@ -54,6 +54,8 @@ class TecoGanModel(BaseModel):
         LR = util.np2tensor(LR, bgr2rgb=True, add_batch=False)
         LR = LR.view(c, 1, h_LR, w_LR)  # Tensor, [C,T,H,W]
         LR = LR.transpose(0, 1)  # Tensor, [T,C,H,W]
+        if args.fp16:
+            LR = LR.half()
         # LR = LR.unsqueeze(0)
         lr_data = LR
 
