@@ -18,7 +18,7 @@ parser.add_argument('--chop_forward', action='store_true')
 parser.add_argument('--crf', default=0, type=int)
 parser.add_argument('--exp', default=1, type=int,
                     help='RIFE exponential interpolation amount')
-parser.add_argument('--fp16', default=False, type=bool,
+parser.add_argument('--fp16', action='store_true',
                     help='Use floating-point 16 mode for faster inference')
 args = parser.parse_args()
 
