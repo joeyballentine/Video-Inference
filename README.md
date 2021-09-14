@@ -18,6 +18,7 @@ This repository is an inference repo similar to that of the ESRGAN inference rep
 - Automatic 'HD' RIFE model detection
 - Automatic beginning and end frame padding so all frames get included in output
 - Direct video input and output through ffmpeg
+- FP16 support for faster inference on RTX cards
 
 ## Using this repo
 
@@ -61,6 +62,7 @@ Optional requirements: `ffmpeg-python` to use video input/output (requires ffmpe
 - `--chop_forward`: Splits tensors to avoid out-of-memory errors
 - `--crf`: The crf (quality) of the output video when using video input/output. Defaults to 0 (lossless)
 - `--exp`: RIFE exponential interpolation amount
+- `--fp16`: Speedup on RTX cards using HalfTensors
 
 ## Planned architecture support
 
